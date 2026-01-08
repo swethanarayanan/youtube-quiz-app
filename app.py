@@ -37,28 +37,29 @@ def get_video_id(url):
     return match.group(1) if match else None
 
 def get_transcript(video_id):
-    """Fetches the transcript of the video (including auto-generated)."""
     try:
-        # Try finding a transcript in English (Manual or Auto-generated)
-        # 'en' = manual English, 'a.en' = auto-generated English
-        transcript_list = YouTubeTranscriptApi.get_transcript(
-            video_id, 
-            languages=['en', 'en-US', 'en-GB', 'a.en']
-        )
+        # 1. Try fetching the list of all available transcripts
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        # Combine dictionary entries into a single string
-        transcript_text = " ".join([item['text'] for item in transcript_list])
-        return transcript_text
-        
-    except Exception as e:
-        # If that fails, try to list ALL available transcripts and pick the first one
+        # 2. Filter for English (or auto-generated English)
+        # We try to find a manually created English transcript first
         try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            # Fetch the first available transcript (whatever language it is)
-            first_transcript = next(iter(transcript_list))
-            return " ".join([item['text'] for item in first_transcript.fetch()])
-        except Exception:
-            return None
+            transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+        except:
+            # If no manual English, try auto-generated
+            try:
+                transcript = transcript_list.find_generated_transcript(['en'])
+            except:
+                # If neither, just grab the first available one (e.g., Spanish) and we can translate later
+                transcript = next(iter(transcript_list))
+        
+        # 3. Fetch the actual text
+        return " ".join([item['text'] for item in transcript.fetch()])
+
+    except Exception as e:
+        # This will print the ACTUAL error to your screen so we can debug
+        st.error(f"Detailed Error: {e}")
+        return None
 
 def generate_quiz(transcript_text, num_questions=5):
     """Prompts Gemini to generate a quiz from the text."""
