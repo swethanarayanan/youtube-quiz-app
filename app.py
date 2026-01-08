@@ -38,25 +38,29 @@ def get_video_id(url):
 
 def get_transcript(video_id):
     try:
-        # 1. Fetch the full transcript object
+        # METHOD A: The Modern Way (For newer library versions)
+        # This handles auto-generated captions best
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        # 2. Prioritize Manual English -> Auto-Generated English -> Any English
-        # This logic looks for "en" (manual) or "en-US"/"en-GB", etc.
         try:
-            # Try to find a manually created English transcript
-            transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+            # Try manual English, then auto-generated English
+            transcript = transcript_list.find_transcript(['en', 'en-US', 'a.en'])
         except:
-            # If no manual, look for auto-generated English
-            try:
-                transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
-            except:
-                # If absolutely no English, just take the first available one
-                # (This handles videos that are only in Spanish, etc.)
-                transcript = next(iter(transcript_list))
-        
-        # 3. Fetch the actual text data
+            # Fallback to any available language
+            transcript = next(iter(transcript_list))
+            
         return " ".join([item['text'] for item in transcript.fetch()])
+
+    except AttributeError:
+        # METHOD B: The Old Way (Fallback for your current old version)
+        # "list_transcripts" didn't exist back then, so we use "get_transcript" directly
+        try:
+            # This is less flexible but works on old versions
+            transcript = YouTubeTranscriptApi.get_transcript(video_id)
+            return " ".join([item['text'] for item in transcript])
+        except Exception as e:
+            st.error(f"Old Method Failed: {e}")
+            return None
 
     except Exception as e:
         st.error(f"Error: {e}")
