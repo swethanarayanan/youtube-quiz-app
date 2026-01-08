@@ -37,13 +37,28 @@ def get_video_id(url):
     return match.group(1) if match else None
 
 def get_transcript(video_id):
-    """Fetches the transcript of the video."""
+    """Fetches the transcript of the video (including auto-generated)."""
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        # Try finding a transcript in English (Manual or Auto-generated)
+        # 'en' = manual English, 'a.en' = auto-generated English
+        transcript_list = YouTubeTranscriptApi.get_transcript(
+            video_id, 
+            languages=['en', 'en-US', 'en-GB', 'a.en']
+        )
+        
+        # Combine dictionary entries into a single string
         transcript_text = " ".join([item['text'] for item in transcript_list])
         return transcript_text
+        
     except Exception as e:
-        return None
+        # If that fails, try to list ALL available transcripts and pick the first one
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            # Fetch the first available transcript (whatever language it is)
+            first_transcript = next(iter(transcript_list))
+            return " ".join([item['text'] for item in first_transcript.fetch()])
+        except Exception:
+            return None
 
 def generate_quiz(transcript_text, num_questions=5):
     """Prompts Gemini to generate a quiz from the text."""
