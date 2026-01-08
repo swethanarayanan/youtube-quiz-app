@@ -38,27 +38,28 @@ def get_video_id(url):
 
 def get_transcript(video_id):
     try:
-        # 1. Try fetching the list of all available transcripts
+        # 1. Fetch the full transcript object
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        # 2. Filter for English (or auto-generated English)
-        # We try to find a manually created English transcript first
+        # 2. Prioritize Manual English -> Auto-Generated English -> Any English
+        # This logic looks for "en" (manual) or "en-US"/"en-GB", etc.
         try:
+            # Try to find a manually created English transcript
             transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
         except:
-            # If no manual English, try auto-generated
+            # If no manual, look for auto-generated English
             try:
-                transcript = transcript_list.find_generated_transcript(['en'])
+                transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
             except:
-                # If neither, just grab the first available one (e.g., Spanish) and we can translate later
+                # If absolutely no English, just take the first available one
+                # (This handles videos that are only in Spanish, etc.)
                 transcript = next(iter(transcript_list))
         
-        # 3. Fetch the actual text
+        # 3. Fetch the actual text data
         return " ".join([item['text'] for item in transcript.fetch()])
 
     except Exception as e:
-        # This will print the ACTUAL error to your screen so we can debug
-        st.error(f"Detailed Error: {e}")
+        st.error(f"Error: {e}")
         return None
 
 def generate_quiz(transcript_text, num_questions=5):
